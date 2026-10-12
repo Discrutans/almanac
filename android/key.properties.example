@@ -1,0 +1,7 @@
+# Скопируйте в key.properties (файл в .gitignore) и подставьте значения.
+# storeFile — путь относительно android/app/
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=almanac
+storeFile=../keystore/almanac-upload.jks

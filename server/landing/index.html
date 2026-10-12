@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Almanac — join session</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 640px;
+        margin: 48px auto;
+        padding: 0 16px;
+        line-height: 1.5;
+      }
+      .card {
+        border: 1px solid #dbeafe;
+        border-radius: 16px;
+        padding: 24px;
+        background: #f8fafc;
+      }
+      @media (prefers-color-scheme: dark) {
+        .card {
+          border-color: #334155;
+          background: #0f172a;
+        }
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      a.button,
+      button.secondary {
+        display: inline-block;
+        padding: 12px 18px;
+        border-radius: 999px;
+        font: inherit;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      a.button {
+        background: #1d4ed8;
+        color: white;
+        border: none;
+      }
+      button.secondary {
+        background: transparent;
+        border: 1px solid #94a3b8;
+        color: inherit;
+      }
+      .muted { color: #64748b; }
+      .title { font-size: 1.25rem; font-weight: 600; margin: 8px 0; }
+      .hint {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(29, 78, 216, 0.08);
+        font-size: 0.95rem;
+      }
+      code {
+        font-family: ui-monospace, monospace;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Almanac</h1>
+      <p class="muted" id="subtitle">Group planning and booking session</p>
+      <p id="sessionTitle" class="title"></p>
+      <p id="tokenLine"></p>
+      <div class="actions">
+        <a id="openApp" class="button" href="#">Open in Almanac</a>
+        <button type="button" class="secondary" id="copyLink">Copy link</button>
+        <button type="button" class="secondary" id="copyToken">Copy token</button>
+      </div>
+      <p id="status" class="muted" style="margin-top: 12px"></p>
+      <div class="hint" id="desktopHint"></div>
+    </div>
+    <script>
+      const ru = navigator.language.startsWith("ru");
+      const segments = window.location.pathname.split("/").filter(Boolean);
+      const token = segments[segments.length - 1] || "";
+      const server = encodeURIComponent(window.location.origin);
+      const pageUrl = window.location.href;
+      const appLink = "almanac://join/" + token + "?server=" + server;
+
+      const i18n = ru
+        ? {
+            subtitle: "Совместное планирование или запись",
+            token: "Токен сессии",
+            open: "Открыть в Almanac",
+            copyLink: "Скопировать ссылку",
+            copyToken: "Скопировать токен",
+            copied: "Скопировано",
+            desktop:
+              "На компьютере: запустите приложение Almanac → «Ссылки и API» → «Войти по токену» и вставьте токен. Кнопка «Открыть» работает на телефоне с установленным приложением.",
+            loading: "Загрузка сессии…",
+            notFound: "Сессия не найдена на сервере",
+          }
+        : {
+            subtitle: "Group planning and booking session",
+            token: "Session token",
+            open: "Open in Almanac",
+            copyLink: "Copy link",
+            copyToken: "Copy token",
+            copied: "Copied",
+            desktop:
+              "On desktop: run the Almanac app → Platform Links → Join by token. The Open button works on mobile with the app installed.",
+            loading: "Loading session…",
+            notFound: "Session not found on this server",
+          };
+
+      document.getElementById("subtitle").textContent = i18n.subtitle;
+      document.getElementById("tokenLine").textContent = i18n.token + ": " + token;
+      document.getElementById("openApp").textContent = i18n.open;
+      document.getElementById("copyLink").textContent = i18n.copyLink;
+      document.getElementById("copyToken").textContent = i18n.copyToken;
+      document.getElementById("desktopHint").textContent = i18n.desktop;
+      document.getElementById("openApp").href = appLink;
+
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          document.getElementById("status").textContent = i18n.copied;
+        } catch (_) {
+          document.getElementById("status").textContent = text;
+        }
+      }
+
+      document.getElementById("copyLink").addEventListener("click", () => copyText(pageUrl));
+      document.getElementById("copyToken").addEventListener("click", () => copyText(token));
+
+      document.getElementById("openApp").addEventListener("click", (event) => {
+        event.preventDefault();
+        window.location.href = appLink;
+        setTimeout(() => {
+          document.getElementById("status").textContent = i18n.desktop;
+        }, 1200);
+      });
+
+      if (token) {
+        fetch("/v1/sessions/" + encodeURIComponent(token))
+          .then((r) => (r.ok ? r.json() : null))
+          .then((session) => {
+            if (session && session.title) {
+              document.getElementById("sessionTitle").textContent = session.title;
+            }
+          })
+          .catch(() => {});
+      }
+    </script>
+  </body>
+</html>

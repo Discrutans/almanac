@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Almanac — домашний сервер</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --line: #dbeafe;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #1d4ed8;
+        --ok: #15803d;
+        --bad: #b91c1c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --card: #0f172a;
+          --line: #334155;
+          --text: #e2e8f0;
+          --muted: #94a3b8;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.45;
+      }
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 28px 16px 64px;
+      }
+      h1 { font-size: 1.45rem; margin: 0 0 8px; }
+      h2 { font-size: 1.05rem; margin: 0 0 12px; }
+      .muted { color: var(--muted); }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 16px;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin: 12px 0 4px;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        font: inherit;
+        background: transparent;
+        color: inherit;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 640px) {
+        .row { grid-template-columns: 1fr; }
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      button, a.button {
+        font: inherit;
+        cursor: pointer;
+        border-radius: 999px;
+        padding: 10px 16px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: inherit;
+        text-decoration: none;
+      }
+      button.primary, a.button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: rgba(29, 78, 216, 0.08);
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 0.82rem;
+        max-height: 280px;
+        overflow: auto;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(100, 116, 139, 0.12);
+      }
+      .status.ok { color: var(--ok); }
+      .status.bad { color: var(--bad); }
+      .url {
+        font-family: ui-monospace, monospace;
+        font-size: 1.05rem;
+        word-break: break-all;
+      }
+      .check {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 12px;
+      }
+      .hint { font-size: 0.92rem; }
+      ol.steps { padding-left: 1.2rem; }
+      .nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+      .nav a {
+        color: inherit;
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+      }
+      .nav a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="nav">
+        <a class="active" href="/lab">Подключение</a>
+        <a href="/lab/plan">Планирование</a>
+      </nav>
+      <h1>Almanac на этом ПК</h1>
+      <p class="muted">
+        Сервер уже запущен. Телефон подключается через WireGuard на MikroTik,
+        без открытия порта 8080 в интернет.
+      </p>
+
+      <section class="card">
+        <h2>1. Проверка API</h2>
+        <p class="hint">В Almanac → Профили → Ссылки и API вставьте этот адрес:</p>
+        <p id="serverUrl" class="url">http://localhost:8080</p>
+        <label for="pcLanIp">IP этого ПК в домашней сети</label>
+        <input id="pcLanIp" type="text" placeholder="192.168.88.50" list="lanIps" />
+        <datalist id="lanIps"></datalist>
+        <label for="apiKey">API key из Almanac (необязательно для health)</label>
+        <input id="apiKey" type="text" placeholder="UUID из приложения" />
+        <div class="actions">
+          <button type="button" class="primary" id="testBtn">Проверить подключение</button>
+          <button type="button" id="copyUrlBtn">Копировать Server URL</button>
+        </div>
+        <div id="testStatus" class="status" hidden></div>
+      </section>
+
+      <section class="card">
+        <h2>2. WireGuard на hAP ax S</h2>
+        <p class="hint">
+          ПК остаётся в LAN. На MikroTik — WG-сервер. На телефоне — клиент.
+          С улицы телефон заходит в туннель и ходит на IP ПК.
+        </p>
+        <div class="row">
+          <div>
+            <label for="endpoint">WAN IP или DDNS роутера</label>
+            <input id="endpoint" type="text" placeholder="home.example.ru или 91.x.x.x" />
+          </div>
+          <div>
+            <label for="wgPort">UDP порт WG</label>
+            <input id="wgPort" type="number" value="13231" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="lanCidr">LAN подсеть MikroTik</label>
+            <input id="lanCidr" type="text" value="192.168.88.0/24" />
+          </div>
+          <div>
+            <label for="wgNetwork">Сеть туннеля</label>
+            <input id="wgNetwork" type="text" value="10.13.13.0/24" />
+          </div>
+        </div>
+        <label for="phoneName">Имя телефона в скрипте</label>
+        <input id="phoneName" type="text" value="almanac-phone" />
+        <label class="check">
+          <input id="pcPeer" type="checkbox" />
+          Дополнительно конфиг WireGuard для ноутбука (если ПК не дома)
+        </label>
+        <label class="check">
+          <input id="reuseKeys" type="checkbox" checked />
+          Не менять ключ MikroTik, если уже генерировали
+        </label>
+        <div class="actions">
+          <button type="button" class="primary" id="genBtn">Сгенерировать ключи и скрипты</button>
+          <a class="button" id="dlPhone" href="/v1/lab/phone.conf">Скачать almanac-phone.conf</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. Что вставить</h2>
+        <p class="muted">Скрипт в Terminal WinBox / MikroTik:</p>
+        <pre id="mikrotikScript">Нажмите «Сгенерировать ключи и скрипты».</pre>
+        <div class="actions">
+          <button type="button" id="copyMtBtn">Копировать скрипт MikroTik</button>
+        </div>
+        <p class="muted">Файл для приложения WireGuard на телефоне:</p>
+        <pre id="phoneConf"></pre>
+        <div class="actions">
+          <button type="button" id="copyPhoneBtn">Копировать .conf телефона</button>
+        </div>
+        <pre id="pcConf" hidden></pre>
+        <div class="actions">
+          <button type="button" id="copyPcBtn" hidden>Копировать .conf ПК</button>
+        </div>
+        <ol class="steps hint">
+          <li>Импортируйте .conf в WireGuard на телефоне и включите туннель.</li>
+          <li>На ПК в PowerShell от администратора:
+            <code>netsh advfirewall firewall add rule name="Almanac API" dir=in action=allow protocol=TCP localport=8080</code>
+          </li>
+          <li>В Almanac укажите Server URL с IP ПК, сохраните, нажмите «Проверить подключение».</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>4. Совместное планирование</h2>
+        <p class="hint">
+          Отдельная страница создаёт сессию, даёт ссылку /join и живую комнату
+          по WebSocket — можно проверить телефон и второй браузер без ожидания приложения.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="/lab/plan">Открыть тест планирования</a>
+        </div>
+      </section>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function body() {
+        return {
+          endpoint: $("endpoint").value.trim(),
+          wg_port: Number($("wgPort").value) || 13231,
+          wg_network: $("wgNetwork").value.trim(),
+          lan_cidr: $("lanCidr").value.trim(),
+          pc_lan_ip: $("pcLanIp").value.trim(),
+          phone_name: $("phoneName").value.trim() || "almanac-phone",
+          api_key: $("apiKey").value.trim(),
+          reuse_server_keys: $("reuseKeys").checked,
+          generate_pc_peer: $("pcPeer").checked,
+        };
+      }
+
+      function fill(data) {
+        const cfg = data.config || {};
+        if (cfg.endpoint) $("endpoint").value = cfg.endpoint;
+        if (cfg.wg_port) $("wgPort").value = cfg.wg_port;
+        if (cfg.wg_network) $("wgNetwork").value = cfg.wg_network;
+        if (cfg.lan_cidr) $("lanCidr").value = cfg.lan_cidr;
+        if (cfg.phone_name) $("phoneName").value = cfg.phone_name;
+        if (cfg.api_key) $("apiKey").value = cfg.api_key;
+        $("pcPeer").checked = Boolean(cfg.generate_pc_peer);
+        const ip = cfg.pc_lan_ip || data.pc_lan_ip || "";
+        if (ip) $("pcLanIp").value = ip;
+        const list = $("lanIps");
+        list.innerHTML = "";
+        (data.lan_ips || []).forEach((item) => {
+          const opt = document.createElement("option");
+          opt.value = item;
+          list.appendChild(opt);
+        });
+        const url = data.server_url || (ip ? "http://" + ip + ":8080" : "http://localhost:8080");
+        $("serverUrl").textContent = url;
+        if (data.mikrotik_script) $("mikrotikScript").textContent = data.mikrotik_script;
+        if (data.phone_conf) $("phoneConf").textContent = data.phone_conf;
+        if (data.pc_conf) {
+          $("pcConf").hidden = false;
+          $("copyPcBtn").hidden = false;
+          $("pcConf").textContent = data.pc_conf;
+        }
+      }
+
+      async function loadStatus() {
+        const res = await fetch("/v1/lab/status");
+        if (!res.ok) throw new Error("Помощник выключен (нужен ALMANAC_HOME_LAB=1)");
+        fill(await res.json());
+      }
+
+      async function copyText(text) {
+        await navigator.clipboard.writeText(text || "");
+      }
+
+      $("testBtn").addEventListener("click", async () => {
+        const box = $("testStatus");
+        box.hidden = false;
+        box.className = "status";
+        box.textContent = "Проверяю…";
+        const res = await fetch("/v1/lab/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body()),
+        });
+        const data = await res.json();
+        if (data.server_url) $("serverUrl").textContent = data.server_url;
+        box.textContent = data.message || res.statusText;
+        box.className = "status " + (data.health_ok ? "ok" : "bad");
+      });
+
+      $("genBtn").addEventListener("click", async () => {
+        const res = await fetch("/v1/lab/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body()),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          $("mikrotikScript").textContent = data.detail || "Ошибка генерации";
+          return;
+        }
+        fill({ ...data, config: body(), server_url: data.server_url, pc_lan_ip: body().pc_lan_ip });
+      });
+
+      $("copyUrlBtn").addEventListener("click", () => copyText($("serverUrl").textContent));
+      $("copyMtBtn").addEventListener("click", () => copyText($("mikrotikScript").textContent));
+      $("copyPhoneBtn").addEventListener("click", () => copyText($("phoneConf").textContent));
+      $("copyPcBtn").addEventListener("click", () => copyText($("pcConf").textContent));
+
+      loadStatus().catch((err) => {
+        $("testStatus").hidden = false;
+        $("testStatus").className = "status bad";
+        $("testStatus").textContent = String(err.message || err);
+      });
+    </script>
+  </body>
+</html>

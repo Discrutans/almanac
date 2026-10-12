@@ -1,0 +1,4 @@
+# Deep link host for Android App Links (without scheme).
+# Copy to gradle.properties or set in CI:
+# ALMANAC_DEEP_LINK_HOST=api.example.com
+ALMANAC_DEEP_LINK_HOST=localhost

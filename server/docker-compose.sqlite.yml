@@ -1,0 +1,16 @@
+services:
+  almanac-api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      ALMANAC_HOST: 0.0.0.0
+      ALMANAC_PORT: 8080
+      ALMANAC_PUBLIC_ORIGIN: http://localhost:8080
+      ALMANAC_DB_BACKEND: sqlite
+      ALMANAC_SQLITE_PATH: /data/almanac.db
+    volumes:
+      - almanac-data:/data
+
+volumes:
+  almanac-data:

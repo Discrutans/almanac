@@ -1,0 +1,32 @@
+services:
+  ydb-local:
+    image: ydbplatform/local-ydb:latest
+    hostname: ydb-local
+    ports:
+      - "2136:2136"
+      - "8765:8765"
+    environment:
+      YDB_DEFAULT_LOG_LEVEL: NOTICE
+      YDB_GRPC_TLS_DATA_PATH: /ydb_certs
+    volumes:
+      - ydb-data:/ydb_data
+
+  almanac-api:
+    build: .
+    depends_on:
+      - ydb-local
+    ports:
+      - "8080:8080"
+    environment:
+      ALMANAC_HOST: 0.0.0.0
+      ALMANAC_PORT: 8080
+      ALMANAC_PUBLIC_ORIGIN: http://localhost:8080
+      ALMANAC_DB_BACKEND: ydb
+      ALMANAC_YDB_ENDPOINT: grpc://ydb-local:2136
+      ALMANAC_YDB_DATABASE: /local
+    volumes:
+      - almanac-data:/data
+
+volumes:
+  almanac-data:
+  ydb-data:

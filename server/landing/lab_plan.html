@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Almanac — тест планирования</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --line: #dbeafe;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #1d4ed8;
+        --ok: #15803d;
+        --bad: #b91c1c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --card: #0f172a;
+          --line: #334155;
+          --text: #e2e8f0;
+          --muted: #94a3b8;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.45;
+      }
+      main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+      h1 { font-size: 1.4rem; margin: 0 0 8px; }
+      h2 { font-size: 1.05rem; margin: 0 0 12px; }
+      .muted { color: var(--muted); }
+      .nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+      .nav a {
+        color: inherit;
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+      }
+      .nav a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 16px;
+      }
+      label { display: block; font-size: 0.85rem; color: var(--muted); margin: 12px 0 4px; }
+      input, select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        font: inherit;
+        background: transparent;
+        color: inherit;
+      }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+      button, a.button {
+        font: inherit; cursor: pointer; border-radius: 999px;
+        padding: 10px 16px; border: 1px solid var(--line);
+        background: transparent; color: inherit; text-decoration: none;
+      }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { color: var(--bad); }
+      .url { font-family: ui-monospace, monospace; word-break: break-all; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .chip {
+        font-size: 0.82rem;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(29, 78, 216, 0.12);
+      }
+      .slot {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .log {
+        white-space: pre-wrap;
+        font-size: 0.8rem;
+        max-height: 180px;
+        overflow: auto;
+        background: rgba(29, 78, 216, 0.08);
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .status { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(100, 116, 139, 0.12); }
+      .status.ok { color: var(--ok); }
+      .status.bad { color: var(--bad); }
+      .session-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="nav">
+        <a href="/lab">Подключение</a>
+        <a class="active" href="/lab/plan">Планирование</a>
+      </nav>
+      <h1>Совместное планирование</h1>
+      <p class="muted">
+        Создайте сессию на этом ПК, откройте ссылку на телефоне в Almanac
+        или вторую вкладку как гость — слоты синхронизируются по WebSocket.
+        Гостю не нужен API key. Владелец (галочка ниже) правит слоты без лимита редакторов.
+      </p>
+      <p class="muted">Server URL для приложения: <span id="serverUrl" class="url">—</span></p>
+
+      <section class="card">
+        <h2>1. Сессия</h2>
+        <label for="apiKey">API key (пусто = создать новый для лаборатории)</label>
+        <input id="apiKey" type="text" placeholder="UUID из Almanac или оставьте пустым" />
+        <label for="title">Название</label>
+        <input id="title" type="text" value="Тест планирования" />
+        <div class="row">
+          <div>
+            <label for="maxEditors">Макс. редакторов (гости)</label>
+            <input id="maxEditors" type="number" value="3" min="1" max="20" />
+          </div>
+          <div>
+            <label for="slotCount">Слотов на старте</label>
+            <input id="slotCount" type="number" value="3" min="0" max="24" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="createBtn">Создать сессию</button>
+          <button type="button" id="refreshBtn">Обновить список</button>
+        </div>
+        <div id="createStatus" class="status" hidden></div>
+        <p class="muted">Ссылка для приложения:</p>
+        <p id="deepLink" class="url">—</p>
+        <div class="actions">
+          <button type="button" id="copyLinkBtn">Копировать /join</button>
+          <button type="button" id="copyAppBtn">Копировать almanac://</button>
+          <button type="button" id="guestTabBtn">Открыть гостевую вкладку</button>
+        </div>
+        <div id="sessionList"></div>
+      </section>
+
+      <section class="card">
+        <h2>2. Живая комната</h2>
+        <div class="row">
+          <div>
+            <label for="token">Token</label>
+            <input id="token" type="text" placeholder="из ссылки /join/…" />
+          </div>
+          <div>
+            <label for="guestName">Ваше имя</label>
+            <input id="guestName" type="text" value="Lab guest" />
+          </div>
+        </div>
+        <label class="muted" style="display:flex;gap:8px;align-items:center;margin-top:12px">
+          <input id="asOwner" type="checkbox" style="width:auto" />
+          Подключиться как владелец (с API key) — без лимита редакторов
+        </label>
+        <div class="actions">
+          <button type="button" class="primary" id="connectBtn">Подключиться</button>
+          <button type="button" id="disconnectBtn">Отключиться</button>
+        </div>
+        <div id="wsStatus" class="status" hidden></div>
+        <p class="muted">Участники</p>
+        <div id="clients" class="chips"></div>
+        <div id="slots"></div>
+        <div class="row">
+          <div>
+            <label for="newStart">Новый слот (начало)</label>
+            <input id="newStart" type="datetime-local" />
+          </div>
+          <div>
+            <label for="newMinutes">Длительность, мин</label>
+            <input id="newMinutes" type="number" value="60" min="15" max="240" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="addSlotBtn">Добавить слот</button>
+        </div>
+        <p class="muted">Журнал</p>
+        <pre class="log" id="log"></pre>
+      </section>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      let apiKey = "";
+      let current = null;
+      let version = 1;
+      let socket = null;
+      let serverUrl = location.origin;
+      let clientId = crypto.randomUUID();
+
+      function errorText(data, fallback) {
+        const detail = data && data.detail;
+        if (typeof detail === "string") return detail;
+        if (Array.isArray(detail)) {
+          return detail.map((item) => item.msg || item).join("; ");
+        }
+        return fallback;
+      }
+
+      function toLocalInput(date) {
+        const pad = (n) => String(n).padStart(2, "0");
+        return (
+          date.getFullYear() +
+          "-" + pad(date.getMonth() + 1) +
+          "-" + pad(date.getDate()) +
+          "T" + pad(date.getHours()) +
+          ":" + pad(date.getMinutes())
+        );
+      }
+
+      function log(line) {
+        const box = $("log");
+        const stamp = new Date().toLocaleTimeString();
+        box.textContent = `[${stamp}] ${line}\n` + box.textContent;
+      }
+
+      function setStatus(id, text, ok) {
+        const box = $(id);
+        box.hidden = !text;
+        box.textContent = text || "";
+        box.className = "status " + (ok ? "ok" : "bad");
+      }
+
+      function formatSlot(slot) {
+        const start = new Date(slot.start);
+        const end = new Date(slot.end);
+        const opts = { hour: "2-digit", minute: "2-digit" };
+        return `${slot.label || ""} ${start.toLocaleString([], opts)}–${end.toLocaleTimeString([], opts)}`.trim();
+      }
+
+      function renderSlots(slots) {
+        const root = $("slots");
+        if (!slots || !slots.length) {
+          root.innerHTML = '<p class="muted">Слотов нет — добавьте или откройте Almanac.</p>';
+          return;
+        }
+        root.innerHTML = slots.map((slot) => `
+          <div class="slot">
+            <div>${formatSlot(slot)}</div>
+            <button type="button" data-remove="${slot.id}">Удалить</button>
+          </div>
+        `).join("");
+        root.querySelectorAll("[data-remove]").forEach((btn) => {
+          btn.addEventListener("click", () => removeSlot(btn.getAttribute("data-remove")));
+        });
+      }
+
+      function renderClients(clients) {
+        $("clients").innerHTML = (clients || [])
+          .map((c) => `<span class="chip">${c.display_name || c.client_id}</span>`)
+          .join("") || '<span class="muted">никого</span>';
+      }
+
+      function applySession(session, clients) {
+        current = session;
+        version = session.version || version;
+        $("token").value = session.token;
+        $("deepLink").textContent = session.deep_link || ($("deepLink").textContent);
+        renderSlots(session.state && session.state.slots);
+        if (clients) renderClients(clients);
+      }
+
+      function sendPatch(ops) {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          setStatus("wsStatus", "Сначала подключитесь к комнате.", false);
+          return;
+        }
+        socket.send(JSON.stringify({ type: "patch", baseVersion: version, ops }));
+      }
+
+      function removeSlot(id) {
+        sendPatch([{ op: "removeSlot", slot_id: id }]);
+      }
+
+      async function loadList() {
+        const res = await fetch("/v1/lab/sessions?api_key=" + encodeURIComponent($("apiKey").value.trim()));
+        if (!res.ok) throw new Error("Лаборатория выключена (ALMANAC_HOME_LAB=1)");
+        const data = await res.json();
+        apiKey = data.api_key || "";
+        if (data.server_url) {
+          serverUrl = data.server_url;
+          $("serverUrl").textContent = serverUrl;
+        }
+        if (apiKey && !$("apiKey").value) $("apiKey").value = apiKey;
+        const list = $("sessionList");
+        const open = (data.sessions || []).filter((s) => s.status === "open");
+        if (!open.length) {
+          list.innerHTML = '<p class="muted">Открытых сессий нет.</p>';
+          return data;
+        }
+        list.innerHTML = open.map((s) => `
+          <div class="session-row">
+            <div>
+              <strong>${s.title}</strong>
+              <div class="muted">${s.mode} · ${s.token.slice(0, 8)}…</div>
+            </div>
+            <div class="actions" style="margin:0">
+              <button type="button" data-open="${s.token}">Открыть</button>
+              <button type="button" class="danger" data-close="${s.token}">Закрыть</button>
+            </div>
+          </div>
+        `).join("");
+        list.querySelectorAll("[data-open]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            $("token").value = btn.getAttribute("data-open");
+            const found = open.find((s) => s.token === $("token").value);
+            if (found) {
+              $("deepLink").textContent = found.deep_link;
+              connect(found.token);
+            }
+          });
+        });
+        list.querySelectorAll("[data-close]").forEach((btn) => {
+          btn.addEventListener("click", () => closeSession(btn.getAttribute("data-close")));
+        });
+        return data;
+      }
+
+      async function closeSession(token) {
+        await fetch("/v1/lab/sessions/" + token + "?api_key=" + encodeURIComponent($("apiKey").value.trim()), {
+          method: "DELETE",
+        });
+        if (current && current.token === token) disconnect();
+        await loadList();
+      }
+
+      function wsUrl(token) {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        const q = new URLSearchParams({
+          clientId,
+          name: $("guestName").value.trim() || "Lab guest",
+        });
+        if ($("asOwner").checked && $("apiKey").value.trim()) {
+          q.set("apiKey", $("apiKey").value.trim());
+        }
+        return `${proto}//${location.host}/v1/ws/sessions/${token}?${q}`;
+      }
+
+      function connect(token) {
+        token = token || $("token").value.trim();
+        if (!token) {
+          setStatus("wsStatus", "Нет token.", false);
+          return;
+        }
+        disconnect();
+        socket = new WebSocket(wsUrl(token));
+        socket.onopen = () => {
+          setStatus("wsStatus", "WebSocket подключён.", true);
+          log("connected " + token);
+        };
+        socket.onclose = () => {
+          setStatus("wsStatus", "Соединение закрыто.", false);
+          log("closed");
+        };
+        socket.onerror = () => setStatus("wsStatus", "Ошибка WebSocket.", false);
+        socket.onmessage = (ev) => {
+          const msg = JSON.parse(ev.data);
+          log(msg.type);
+          if (msg.type === "error") {
+            setStatus("wsStatus", msg.message || "Ошибка сессии", false);
+            return;
+          }
+          if (msg.session) applySession(msg.session, msg.clients);
+          if (msg.type === "state") {
+            version = msg.version || version;
+            renderClients(msg.clients);
+          }
+          if (msg.type === "presence") renderClients(msg.clients);
+          if (msg.type === "patch_applied") version = msg.version || version;
+        };
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.close();
+          socket = null;
+        }
+      }
+
+      $("createBtn").addEventListener("click", async () => {
+        setStatus("createStatus", "Создаю…", true);
+        const res = await fetch("/v1/lab/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: $("apiKey").value.trim(),
+            title: $("title").value.trim() || "Тест планирования",
+            max_editors: Number($("maxEditors").value) || 3,
+            slot_count: Number($("slotCount").value) || 0,
+            mode: "collaborative",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setStatus("createStatus", errorText(data, "Не удалось создать"), false);
+          return;
+        }
+        if (data.api_key) $("apiKey").value = data.api_key;
+        current = data;
+        $("deepLink").textContent = data.deep_link;
+        $("token").value = data.token;
+        setStatus("createStatus", "Сессия создана. Подключите телефон или вторую вкладку.", true);
+        await loadList();
+        connect(data.token);
+      });
+
+      $("refreshBtn").addEventListener("click", () => loadList().catch((err) => setStatus("createStatus", String(err.message || err), false)));
+      $("copyLinkBtn").addEventListener("click", () => navigator.clipboard.writeText($("deepLink").textContent));
+      $("copyAppBtn").addEventListener("click", () => {
+        const token = $("token").value.trim();
+        const link = (current && current.app_link) ||
+          (token ? "almanac://join/" + token + "?server=" + encodeURIComponent(serverUrl) : "");
+        navigator.clipboard.writeText(link);
+      });
+      $("guestTabBtn").addEventListener("click", () => {
+        const token = $("token").value.trim();
+        if (!token) {
+          setStatus("createStatus", "Сначала создайте или откройте сессию.", false);
+          return;
+        }
+        window.open("/lab/plan?token=" + encodeURIComponent(token), "_blank");
+      });
+      $("connectBtn").addEventListener("click", () => connect());
+      $("disconnectBtn").addEventListener("click", disconnect);
+      $("addSlotBtn").addEventListener("click", () => {
+        const raw = $("newStart").value;
+        if (!raw) {
+          setStatus("wsStatus", "Укажите начало слота.", false);
+          return;
+        }
+        const start = new Date(raw);
+        const minutes = Number($("newMinutes").value) || 60;
+        const end = new Date(start.getTime() + minutes * 60000);
+        sendPatch([{
+          op: "addSlot",
+          slot: {
+            id: crypto.randomUUID(),
+            start: start.toISOString(),
+            end: end.toISOString(),
+            label: start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        }]);
+      });
+
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      now.setHours(now.getHours() + 1);
+      $("newStart").value = toLocalInput(now);
+
+      loadList()
+        .then(() => {
+          const token = params.get("token");
+          if (token) {
+            $("token").value = token;
+            connect(token);
+          }
+        })
+        .catch((err) => setStatus("createStatus", String(err.message || err), false));
+    </script>
+  </body>
+</html>
