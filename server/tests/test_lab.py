@@ -117,6 +117,7 @@ def test_hap_ax_s_rsc_is_optimized():
     export_rsc = (steps / "00-export.rsc").read_text(encoding="utf-8")
     filter_rsc = (steps / "06-filter.rsc").read_text(encoding="utf-8")
     assert "hide-sensitive" in export_rsc
+    assert "routerboard upgrade" in (steps / "00b-firmware.rsc").read_text(encoding="utf-8")
     assert "INPUT mDNS" in filter_rsc
     assert "Isolate 2.4 IoT" in filter_rsc
     assert "responder=yes" not in filter_rsc

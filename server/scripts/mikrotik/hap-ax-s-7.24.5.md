@@ -66,14 +66,17 @@ WinBox → Files → скачать `almanac-export.rsc` и `before-almanac.back
 | WG позже с `/lab` | Ключи не храним в git; peer с `responder=yes` (сервер) |
 | Не reset-configuration | В экспорте нет PSK |
 
-Этапы: `steps/00` … `steps/08`. Вставляйте **по одному файлу**, смотрите что напечатало, потом следующий.
+Этапы: `steps/00` → `00b` → `01` … `08`. По одному блоку.
+
+На живом экспорте 2026-10-19: ROS **7.24.5**, пакеты `routeros` + `wifi-mediatek`, CPU ~28% (CAKE уже крутится), Cloud `ddns-enabled=auto` **без** `dns-name` — в этапе 1 ставим `yes`. RouterBOARD **7.19.6** при `upgrade-firmware: 7.24.5` — сначала `00b`.
 
 ## 4. Порядок
 
 | # | Файл | Что делает |
 |---|---|---|
 | 0 | `steps/00-export.rsc` | Снимок для чата + backup |
-| 1 | `steps/01-lists-services.rsc` | IOT-список, ALG/WPS/MAC/SSH, Cloud DDNS |
+| 0b | `steps/00b-firmware.rsc` | RouterBOARD 7.19.6 → 7.24.5 + reboot |
+| 1 | `steps/01-lists-services.rsc` | IOT-список, ALG/MAC/SSH, Cloud DDNS=yes |
 | 2 | `steps/02-dns-ntp-doh.rsc` | Кэш, DoH, NTP, mDNS |
 | 3 | `steps/03-wifi.rsc` | 2.4: 20 МГц + isolation, WPS off |
 | 4 | `steps/04-upnp.rsc` | UPnP только кабель |
