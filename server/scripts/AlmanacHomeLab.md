@@ -38,7 +38,22 @@ pip install -r requirements.txt
 
 Страница `/lab`, не открывать порт 8080 в интернет.
 
-Целевой снимок конфига роутера (три моста, CAKE, firewall): [`mikrotik/hap-ax-s.rsc`](mikrotik/hap-ax-s.rsc). Пароли Wi‑Fi в экспорте скрыты — файл не для `reset-configuration`.
+Сначала оптимизация живого роутера (WinBox Terminal с кабеля `192.168.10.x`):
+[`mikrotik/hap-ax-s-optimize.rsc`](mikrotik/hap-ax-s-optimize.rsc).
+
+Целевой снимок: [`mikrotik/hap-ax-s.rsc`](mikrotik/hap-ax-s.rsc). Пароли Wi‑Fi скрыты — не делать `reset-configuration`.
+
+Что меняется в firewall/сервисах:
+
+- Удалены дубли: SSH+Winbox в filter (уже есть полный доступ с `bridge-lan` + `available-from=192.168.10.0/24`), раздельные TCP/UDP mangle для ether2 (было 10 правил, стало 7).
+- WAN везде через `WAN-interfaces`, не хардкод `ether1`.
+- UPnP только на кабельном LAN (игры); с Wi‑Fi снят.
+- DNS-кэш роутера: DHCP раздаёт `192.168.x.1`, не сырые 1.1.1.1. Имя `router.lan`.
+- NTP-сервер на роутере, mDNS repeater между LAN и Wi‑Fi 5 (AirPlay/печать).
+- 2.4 Assist = IoT: не ходит в LAN/5 GHz/WG, WPS выкл, client isolation, 20 МГц.
+- SIP/FTP/H323 ALG выкл, MAC Winbox только LAN, bandwidth-server/SNMP выкл, Cloud DDNS для WG.
+- Bogon drop на WAN без `10.0.0.0/8` (CGNAT и туннель `10.13.13.0/24`).
+- Hairpin NAT для UPnP с LAN.
 
 | Мост | Подсеть | Порты / SSID |
 |------|---------|----------------|

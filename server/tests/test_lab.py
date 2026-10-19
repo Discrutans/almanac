@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -88,6 +90,26 @@ def test_hap_ax_s_multi_lan_allowed_ips():
     assert "192.168.10.0/24, 192.168.20.0/24, 192.168.30.0/24" in script
     assert phone_pub in script
     assert bundle.server_url == "http://192.168.10.50:8080"
+
+
+def test_hap_ax_s_rsc_is_optimized():
+    root = Path(__file__).resolve().parents[1] / "scripts" / "mikrotik"
+    snapshot = (root / "hap-ax-s.rsc").read_text(encoding="utf-8")
+    overlay = (root / "hap-ax-s-optimize.rsc").read_text(encoding="utf-8")
+    for text in (snapshot, overlay):
+        assert "INPUT SSH+Winbox" not in text
+        assert "Isolate 2.4 IoT" in text
+        assert "INPUT drop WAN" in text
+        assert "Almanac WG handshake" in text
+        assert "Hairpin LAN" in text
+        assert "ether2 gaming conn" in text
+        assert "ether2 upload UDP EF" not in text
+        assert "dns-server=192.168.10.1" in text
+        assert "bridge-wifi24 type=internal" not in text
+    assert snapshot.count("change-dscp") == 4
+    assert "mdns-repeat-ifaces" in snapshot
+    assert ".wps=disable" in snapshot
+    assert "address=10.0.0.0/8" not in overlay
 
 
 @pytest.fixture

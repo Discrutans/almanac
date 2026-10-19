@@ -169,9 +169,11 @@
           ПК остаётся на кабеле <code>192.168.10.0/24</code> (bridge-lan).
           На MikroTik — WG-сервер. На телефоне — клиент.
           С улицы телефон заходит в туннель и ходит на IP ПК.
-          Скрипт не трогает Wi‑Fi, CAKE и DHCP — только интерфейс
-          <code>wg-almanac</code>, peer’ы и правило handshake перед
-          «INPUT drop WAN».
+          Сначала один раз вставьте
+          <code>server/scripts/mikrotik/hap-ax-s-optimize.rsc</code>
+          в Terminal (кабель 192.168.10.x). Затем этот генератор:
+          только <code>wg-almanac</code>, peer’ы и handshake перед
+          «INPUT drop WAN». Wi‑Fi, CAKE и DHCP не трогает.
         </p>
         <div class="row">
           <div>
