@@ -10,6 +10,7 @@ from almanac.lab_wg import (
     build_mikrotik_script,
     build_phone_conf,
     generate_keypair,
+    parse_cidrs,
     public_key_from_private,
     x25519,
 )
@@ -44,15 +45,49 @@ def test_mikrotik_script_contains_peer_and_port():
         phone_public_key=phone_pub,
     )
     script = build_mikrotik_script(bundle)
-    assert "listen-port=13231" in script
+    assert "listen-port=$wgPort" in script
+    assert "13231" in script
     assert phone_pub in script
     assert "10.13.13.2/32" in script
-    assert "dst-port=13231" in script
+    assert "dst-port=$wgPort" in script
+    assert 'comment="Almanac WG handshake"' in script
+    assert "INPUT drop WAN" in script
+    assert "LAN-interfaces" in script
+    assert "WAN-interfaces" in script
     conf = build_phone_conf(bundle)
     assert "Endpoint = home.example.ru:13231" in conf
     assert "192.168.88.0/24" in conf
     assert "DNS = 192.168.88.1" in conf
     assert "http://192.168.88.50:8080" == bundle.server_url
+
+
+def test_hap_ax_s_multi_lan_allowed_ips():
+    phone_priv, phone_pub = generate_keypair()
+    mt_priv, mt_pub = generate_keypair()
+    bundle = WireGuardBundle(
+        endpoint="home.example.ru",
+        wg_port=13231,
+        wg_network="10.13.13.0/24",
+        lan_cidr="192.168.10.0/24,192.168.20.0/24,192.168.30.0/24",
+        pc_lan_ip="192.168.10.50",
+        phone_name="pixel",
+        mikrotik_private_key=mt_priv,
+        mikrotik_public_key=mt_pub,
+        phone_private_key=phone_priv,
+        phone_public_key=phone_pub,
+    )
+    conf = build_phone_conf(bundle)
+    assert "DNS = 192.168.10.1" in conf
+    assert "AllowedIPs = 10.13.13.0/24, 192.168.10.0/24, 192.168.20.0/24, 192.168.30.0/24" in conf
+    assert parse_cidrs(bundle.lan_cidr) == [
+        "192.168.10.0/24",
+        "192.168.20.0/24",
+        "192.168.30.0/24",
+    ]
+    script = build_mikrotik_script(bundle)
+    assert "192.168.10.0/24, 192.168.20.0/24, 192.168.30.0/24" in script
+    assert phone_pub in script
+    assert bundle.server_url == "http://192.168.10.50:8080"
 
 
 @pytest.fixture
@@ -90,6 +125,7 @@ async def test_lab_status_generate_and_test(lab_client):
     page = await lab_client.get("/lab")
     assert page.status_code == 200
     assert "домашний сервер" in page.text
+    assert "192.168.10.0/24,192.168.20.0/24,192.168.30.0/24" in page.text
 
     status = await lab_client.get("/v1/lab/status")
     assert status.status_code == 200
@@ -100,21 +136,25 @@ async def test_lab_status_generate_and_test(lab_client):
         json={
             "endpoint": "home.example.ru",
             "wg_port": 13231,
-            "lan_cidr": "192.168.88.0/24",
-            "pc_lan_ip": "192.168.88.50",
+            "lan_cidr": "192.168.10.0/24,192.168.20.0/24,192.168.30.0/24",
+            "pc_lan_ip": "192.168.10.50",
             "phone_name": "pixel",
             "reuse_server_keys": False,
         },
     )
     assert generated.status_code == 200, generated.text
     body = generated.json()
-    assert "listen-port=13231" in body["mikrotik_script"]
+    assert ":local wgPort 13231" in body["mikrotik_script"]
+    assert "listen-port=$wgPort" in body["mikrotik_script"]
     assert "Endpoint = home.example.ru:13231" in body["phone_conf"]
-    assert body["server_url"] == "http://192.168.88.50:8080"
+    assert body["server_url"] == "http://192.168.10.50:8080"
+    assert "Almanac WG handshake" in body["mikrotik_script"]
+    assert "192.168.20.0/24" in body["phone_conf"]
+    assert "192.168.30.0/24" in body["phone_conf"]
 
     probed = await lab_client.post(
         "/v1/lab/test",
-        json={"pc_lan_ip": "192.168.88.50", "api_key": "lab-key"},
+        json={"pc_lan_ip": "192.168.10.50", "api_key": "lab-key"},
     )
     assert probed.status_code == 200
     assert probed.json()["health_ok"] is True

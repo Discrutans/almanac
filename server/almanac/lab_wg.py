@@ -79,11 +79,30 @@ def public_key_from_private(private_b64: str) -> str:
     return _b64(x25519(private, _BASE_U))
 
 
+def parse_cidrs(raw: str) -> list[str]:
+    """Split comma/semicolon lists of CIDRs; empty parts dropped."""
+    if not raw:
+        return []
+    return [part.strip() for part in raw.replace(";", ",").split(",") if part.strip()]
+
+
+def primary_cidr(raw: str, fallback: str = "192.168.10.0/24") -> str:
+    found = parse_cidrs(raw)
+    return found[0] if found else fallback
+
+
+def cidr_gateway(cidr: str) -> str:
+    """Convention: .1 is the router on a /24-style net."""
+    base_ip = cidr.split("/", 1)[0].strip()
+    prefix = base_ip.rsplit(".", 1)[0]
+    return f"{prefix}.1"
+
+
 def wg_host_ips(network: str) -> tuple[str, str, str]:
     """Router / phone / optional PC addresses inside a /24-style WG net."""
-    cidr = network.strip() or "10.13.13.0/24"
-    base_ip = cidr.split("/", 1)[0]
-    prefix = base_ip.rsplit(".", 1)[0]
+    cidr = primary_cidr(network, "10.13.13.0/24")
+    gw = cidr_gateway(cidr)
+    prefix = gw.rsplit(".", 1)[0]
     return f"{prefix}.1", f"{prefix}.2", f"{prefix}.3"
 
 
@@ -117,7 +136,7 @@ class WireGuardBundle:
 
     @property
     def server_url(self) -> str:
-        host = self.pc_lan_ip.strip() or "192.168.88.1"
+        host = self.pc_lan_ip.strip() or "192.168.10.1"
         return f"http://{host}:8080"
 
     @property
@@ -126,29 +145,80 @@ class WireGuardBundle:
 
 
 def build_mikrotik_script(bundle: WireGuardBundle) -> str:
-    peers = [
-        f'/interface wireguard peers add interface=wg-almanac '
-        f'public-key="{bundle.phone_public_key}" allowed-address={bundle.phone_ip}/32 '
-        f'comment="{_safe_name(bundle.phone_name)}"'
+    """Idempotent overlay for hAP ax S (LAN-interfaces / WAN-interfaces).
+
+    Does not touch Wi-Fi, DHCP, CAKE or existing filter policy except inserting
+    the WG handshake accept immediately before ``INPUT drop WAN``.
+    """
+    peer_adds = [
+        f'/interface wireguard peers add interface=$wgName public-key="{bundle.phone_public_key}" '
+        f'allowed-address={bundle.phone_ip}/32 comment="{_safe_name(bundle.phone_name)}"'
     ]
     if bundle.generate_pc_peer and bundle.pc_public_key:
-        peers.append(
-            f'/interface wireguard peers add interface=wg-almanac '
-            f'public-key="{bundle.pc_public_key}" allowed-address={bundle.pc_wg_ip}/32 '
-            f'comment="almanac-pc"'
+        peer_adds.append(
+            f'/interface wireguard peers add interface=$wgName public-key="{bundle.pc_public_key}" '
+            f'allowed-address={bundle.pc_wg_ip}/32 comment="almanac-pc"'
         )
-    peer_block = "\n".join(peers)
-    return f"""# Almanac + WireGuard on MikroTik (RouterOS 7)
-# Paste in Terminal. Do not publish 8080 on WAN — only UDP {bundle.wg_port}.
+    peer_block = "\n".join(peer_adds)
+    lan_nets = ", ".join(parse_cidrs(bundle.lan_cidr) or ["192.168.10.0/24"])
+    return f"""# Almanac WireGuard overlay — hAP ax S / RouterOS 7
+# Вставить в Terminal (WinBox). Можно повторять: ключи и порт обновятся.
+# Не публиковать TCP 8080 на WAN — с улицы только UDP {bundle.wg_port}.
+# LAN, в которые пускаем телефон: {lan_nets}
 
-/interface wireguard add name=wg-almanac listen-port={bundle.wg_port} private-key="{bundle.mikrotik_private_key}"
-/ip address add address={bundle.router_ip}/24 interface=wg-almanac
+:local wgName "wg-almanac"
+:local wgPort {bundle.wg_port}
+:local wgAddr "{bundle.router_ip}/24"
 
+/interface wireguard
+:if ([:len [find name=$wgName]] = 0) do={{
+  add name=$wgName listen-port=$wgPort private-key="{bundle.mikrotik_private_key}" comment="Almanac home lab"
+}} else={{
+  set [find name=$wgName] listen-port=$wgPort private-key="{bundle.mikrotik_private_key}" comment="Almanac home lab"
+}}
+
+/ip address
+:if ([:len [find where interface=$wgName and comment="Almanac WG"]] = 0) do={{
+  add address=$wgAddr interface=$wgName comment="Almanac WG"
+}} else={{
+  set [find where interface=$wgName and comment="Almanac WG"] address=$wgAddr
+}}
+
+:foreach lst in={{"LAN-interfaces";"LAN"}} do={{
+  :if ([:len [/interface list find name=$lst]] > 0) do={{
+    :if ([:len [/interface list member find where list=$lst and interface=$wgName]] = 0) do={{
+      /interface list member add list=$lst interface=$wgName comment="Almanac WG"
+    }}
+  }}
+}}
+
+:local wanList ""
+:if ([:len [/interface list find name="WAN-interfaces"]] > 0) do={{ :set wanList "WAN-interfaces" }}
+:if ($wanList = "" && [:len [/interface list find name="WAN"]] > 0) do={{ :set wanList "WAN" }}
+
+/ip firewall filter
+:if ([:len [find where comment="Almanac WG handshake"]] = 0) do={{
+  :local dropWan [find where comment="INPUT drop WAN"]
+  :if ([:len $dropWan] > 0) do={{
+    :if ($wanList != "") do={{
+      add chain=input action=accept protocol=udp dst-port=$wgPort in-interface-list=$wanList comment="Almanac WG handshake" place-before=$dropWan
+    }} else={{
+      add chain=input action=accept protocol=udp dst-port=$wgPort comment="Almanac WG handshake" place-before=$dropWan
+    }}
+  }} else={{
+    :if ($wanList != "") do={{
+      add chain=input action=accept protocol=udp dst-port=$wgPort in-interface-list=$wanList comment="Almanac WG handshake" place-before=0
+    }} else={{
+      add chain=input action=accept protocol=udp dst-port=$wgPort comment="Almanac WG handshake" place-before=0
+    }}
+  }}
+}} else={{
+  set [find where comment="Almanac WG handshake"] dst-port=$wgPort
+}}
+
+/interface wireguard peers
+:foreach p in=[find interface=$wgName] do={{ remove $p }}
 {peer_block}
-
-/ip firewall filter add chain=input action=accept protocol=udp dst-port={bundle.wg_port} comment="WG Almanac" place-before=0
-/ip firewall filter add chain=forward action=accept in-interface=wg-almanac comment="WG Almanac to LAN"
-/ip firewall filter add chain=forward action=accept out-interface=wg-almanac comment="LAN to WG Almanac"
 """
 
 
@@ -163,7 +233,8 @@ def build_client_conf(
     wg_network: str,
     dns: str,
 ) -> str:
-    allowed = f"{wg_network}, {lan_cidr}".strip(", ")
+    nets = parse_cidrs(wg_network) + parse_cidrs(lan_cidr)
+    allowed = ", ".join(nets)
     return f"""[Interface]
 PrivateKey = {private_key}
 Address = {address}/32
@@ -178,7 +249,7 @@ PersistentKeepalive = 25
 
 
 def build_phone_conf(bundle: WireGuardBundle) -> str:
-    dns = wg_host_ips(bundle.lan_cidr)[0]
+    dns = cidr_gateway(primary_cidr(bundle.lan_cidr))
     return build_client_conf(
         private_key=bundle.phone_private_key,
         address=bundle.phone_ip,

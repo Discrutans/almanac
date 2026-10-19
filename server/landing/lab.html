@@ -152,7 +152,7 @@
         <p class="hint">В Almanac → Профили → Ссылки и API вставьте этот адрес:</p>
         <p id="serverUrl" class="url">http://localhost:8080</p>
         <label for="pcLanIp">IP этого ПК в домашней сети</label>
-        <input id="pcLanIp" type="text" placeholder="192.168.88.50" list="lanIps" />
+        <input id="pcLanIp" type="text" placeholder="192.168.10.50" list="lanIps" />
         <datalist id="lanIps"></datalist>
         <label for="apiKey">API key из Almanac (необязательно для health)</label>
         <input id="apiKey" type="text" placeholder="UUID из приложения" />
@@ -166,8 +166,12 @@
       <section class="card">
         <h2>2. WireGuard на hAP ax S</h2>
         <p class="hint">
-          ПК остаётся в LAN. На MikroTik — WG-сервер. На телефоне — клиент.
+          ПК остаётся на кабеле <code>192.168.10.0/24</code> (bridge-lan).
+          На MikroTik — WG-сервер. На телефоне — клиент.
           С улицы телефон заходит в туннель и ходит на IP ПК.
+          Скрипт не трогает Wi‑Fi, CAKE и DHCP — только интерфейс
+          <code>wg-almanac</code>, peer’ы и правило handshake перед
+          «INPUT drop WAN».
         </p>
         <div class="row">
           <div>
@@ -181,8 +185,8 @@
         </div>
         <div class="row">
           <div>
-            <label for="lanCidr">LAN подсеть MikroTik</label>
-            <input id="lanCidr" type="text" value="192.168.88.0/24" />
+            <label for="lanCidr">LAN подсети MikroTik (через запятую)</label>
+            <input id="lanCidr" type="text" value="192.168.10.0/24,192.168.20.0/24,192.168.30.0/24" />
           </div>
           <div>
             <label for="wgNetwork">Сеть туннеля</label>

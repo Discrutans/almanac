@@ -171,7 +171,7 @@ almanac://join/TOKEN?server=https%3A%2F%2Fapi.example.com
 
 | Страница | Назначение |
 |----------|------------|
-| `http://127.0.0.1:8080/lab` | Server URL, проверка `/health`, скрипты WireGuard для MikroTik |
+| `http://127.0.0.1:8080/lab` | Server URL, проверка `/health`, WireGuard overlay для hAP ax S |
 | `http://127.0.0.1:8080/lab/plan` | Тест совместного планирования: сессия, ссылки `/join` и `almanac://`, живая комната WebSocket |
 
 Сценарий: создать сессию → скопировать `/join` в Almanac на телефоне или открыть гостевую вкладку → добавлять и удалять слоты. Гость без API key ограничен `max_editors`; владелец (галочка + ключ) — нет.
