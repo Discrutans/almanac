@@ -56,6 +56,7 @@ def test_mikrotik_script_contains_peer_and_port():
     assert "INPUT drop WAN" in script
     assert "LAN-interfaces" in script
     assert "WAN-interfaces" in script
+    assert "responder=yes" in script
     conf = build_phone_conf(bundle)
     assert "Endpoint = home.example.ru:13231" in conf
     assert "192.168.88.0/24" in conf
@@ -110,6 +111,15 @@ def test_hap_ax_s_rsc_is_optimized():
     assert "mdns-repeat-ifaces" in snapshot
     assert ".wps=disable" in snapshot
     assert "address=10.0.0.0/8" not in overlay
+    assert "INPUT mDNS" in snapshot
+    assert "use-doh-server" in snapshot
+    steps = root / "steps"
+    export_rsc = (steps / "00-export.rsc").read_text(encoding="utf-8")
+    filter_rsc = (steps / "06-filter.rsc").read_text(encoding="utf-8")
+    assert "hide-sensitive" in export_rsc
+    assert "INPUT mDNS" in filter_rsc
+    assert "Isolate 2.4 IoT" in filter_rsc
+    assert "responder=yes" not in filter_rsc
 
 
 @pytest.fixture

@@ -1,8 +1,5 @@
-# Оптимизация живого hAP ax S. Вставить целиком в Terminal WinBox
-# с кабеля 192.168.10.x (не с Wi-Fi и не через WireGuard).
-#
-# Не трогает: пароли Wi-Fi, SSID, CAKE 475M, адреса/DHCP-пулы, ether1 MAC.
-# После этого: страница /lab → сгенерировать ключи → вставить WG overlay.
+# Целиком только если не хотите этапы. Лучше: hap-ax-s-7.24.5.md + steps/00..08
+# WinBox Terminal, кабель 192.168.10.x. Не трогает PSK/SSID/CAKE/адреса.
 
 :log info "almanac: optimize start"
 
@@ -42,9 +39,11 @@ set [find address=192.168.30.0/24] dns-server=192.168.30.1 ntp-server=192.168.30
 }
 
 :do {
-  /ip dns set mdns-repeat-ifaces=bridge-lan,bridge-wifi5
+  /ip dns set servers=1.1.1.1 allow-remote-requests=yes cache-size=4096KiB \
+      use-doh-server="https://cloudflare-dns.com/dns-query" verify-doh-cert=yes \
+      mdns-repeat-ifaces=bridge-lan,bridge-wifi5
 } on-error={
-  :put "mDNS repeater: нет в этой версии ROS, пропуск"
+  :put "DoH/mDNS: пропуск"
 }
 
 /ip neighbor discovery-settings
@@ -120,6 +119,8 @@ add chain=input action=accept protocol=tcp dst-port=53 \
     in-interface-list=LAN-interfaces comment="INPUT DNS TCP from LAN/WiFi"
 add chain=input action=accept protocol=udp dst-port=123 \
     in-interface-list=LAN-interfaces comment="INPUT NTP from LAN/WiFi"
+add chain=input action=accept protocol=udp dst-port=5353 \
+    in-interface-list=LAN-interfaces comment="INPUT mDNS"
 add chain=input action=accept protocol=icmp \
     in-interface-list=LAN-interfaces comment="INPUT ICMP ping from LAN/WiFi"
 add chain=input action=accept protocol=udp dst-port=13231 \

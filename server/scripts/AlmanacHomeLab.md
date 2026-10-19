@@ -38,10 +38,13 @@ pip install -r requirements.txt
 
 Страница `/lab`, не открывать порт 8080 в интернет.
 
-Сначала оптимизация живого роутера (WinBox Terminal с кабеля `192.168.10.x`):
-[`mikrotik/hap-ax-s-optimize.rsc`](mikrotik/hap-ax-s-optimize.rsc).
+Порядок для **hAP ax S / RouterOS 7.24.5**: [`mikrotik/hap-ax-s-7.24.5.md`](mikrotik/hap-ax-s-7.24.5.md).
 
-Целевой снимок: [`mikrotik/hap-ax-s.rsc`](mikrotik/hap-ax-s.rsc). Пароли Wi‑Fi скрыты — не делать `reset-configuration`.
+1. `steps/00-export.rsc` — прислать вывод в чат.
+2. `steps/01` … `steps/08` — по одному файлу в Terminal с кабеля `192.168.10.x`.
+3. `/lab` — ключи WireGuard и overlay (`responder=yes` на peer).
+
+Целевой снимок: [`mikrotik/hap-ax-s.rsc`](mikrotik/hap-ax-s.rsc). Пароли Wi‑Fi скрыты — не делать `reset-configuration`. Целиком без этапов: [`mikrotik/hap-ax-s-optimize.rsc`](mikrotik/hap-ax-s-optimize.rsc).
 
 Что меняется в firewall/сервисах:
 

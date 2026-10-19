@@ -92,7 +92,8 @@ add address=192.168.30.0/24 dns-server=192.168.30.1 gateway=192.168.30.1 \
     ntp-server=192.168.30.1
 /ip dns
 set allow-remote-requests=yes cache-size=4096KiB mdns-repeat-ifaces=\
-    bridge-lan,bridge-wifi5 servers=1.1.1.1,8.8.8.8
+    bridge-lan,bridge-wifi5 servers=1.1.1.1 use-doh-server=\
+    https://cloudflare-dns.com/dns-query verify-doh-cert=yes
 /ip dns static
 add address=192.168.10.1 comment="router" name=router.lan
 /ip firewall address-list
@@ -131,6 +132,8 @@ add action=accept chain=input comment="INPUT DNS UDP from LAN/WiFi" dst-port=53 
 add action=accept chain=input comment="INPUT DNS TCP from LAN/WiFi" dst-port=53 \
     in-interface-list=LAN-interfaces protocol=tcp
 add action=accept chain=input comment="INPUT NTP from LAN/WiFi" dst-port=123 \
+    in-interface-list=LAN-interfaces protocol=udp
+add action=accept chain=input comment="INPUT mDNS" dst-port=5353 \
     in-interface-list=LAN-interfaces protocol=udp
 add action=accept chain=input comment="INPUT ICMP ping from LAN/WiFi" \
     in-interface-list=LAN-interfaces protocol=icmp

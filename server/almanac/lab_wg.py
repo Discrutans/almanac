@@ -151,12 +151,14 @@ def build_mikrotik_script(bundle: WireGuardBundle) -> str:
     the WG handshake accept immediately before ``INPUT drop WAN``.
     """
     peer_adds = [
-        f'/interface wireguard peers add interface=$wgName public-key="{bundle.phone_public_key}" '
+        f'/interface wireguard peers add interface=$wgName name="{_safe_name(bundle.phone_name)}" '
+        f'responder=yes public-key="{bundle.phone_public_key}" '
         f'allowed-address={bundle.phone_ip}/32 comment="{_safe_name(bundle.phone_name)}"'
     ]
     if bundle.generate_pc_peer and bundle.pc_public_key:
         peer_adds.append(
-            f'/interface wireguard peers add interface=$wgName public-key="{bundle.pc_public_key}" '
+            f'/interface wireguard peers add interface=$wgName name="almanac-pc" '
+            f'responder=yes public-key="{bundle.pc_public_key}" '
             f'allowed-address={bundle.pc_wg_ip}/32 comment="almanac-pc"'
         )
     peer_block = "\n".join(peer_adds)
