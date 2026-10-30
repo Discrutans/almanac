@@ -34,23 +34,53 @@ pip install -r requirements.txt
 
 Гость без ключа ограничен числом редакторов. Галочка «как владелец» + API key — без лимита.
 
-## Телефон через WireGuard (MikroTik)
+## Телефон через WireGuard (MikroTik hAP ax S)
 
 Страница `/lab`, не открывать порт 8080 в интернет.
 
+Порядок для **hAP ax S / RouterOS 7.24.5**: [`mikrotik/hap-ax-s-7.24.5.md`](mikrotik/hap-ax-s-7.24.5.md).
+
+1. `steps/00-export.rsc` — прислать вывод в чат.
+2. `steps/01` … `steps/08` — по одному файлу в Terminal с кабеля `192.168.10.x`.
+3. `/lab` — ключи WireGuard и overlay (`responder=yes` на peer).
+
+Целевой снимок: [`mikrotik/hap-ax-s.rsc`](mikrotik/hap-ax-s.rsc). Пароли Wi‑Fi скрыты — не делать `reset-configuration`. Целиком без этапов: [`mikrotik/hap-ax-s-optimize.rsc`](mikrotik/hap-ax-s-optimize.rsc).
+
+Что меняется в firewall/сервисах:
+
+- Удалены дубли: SSH+Winbox в filter (уже есть полный доступ с `bridge-lan` + `available-from=192.168.10.0/24`), раздельные TCP/UDP mangle для ether2 (было 10 правил, стало 7).
+- WAN везде через `WAN-interfaces`, не хардкод `ether1`.
+- UPnP только на кабельном LAN (игры); с Wi‑Fi снят.
+- DNS-кэш роутера: DHCP раздаёт `192.168.x.1`, не сырые 1.1.1.1. Имя `router.lan`.
+- NTP-сервер на роутере, mDNS repeater между LAN и Wi‑Fi 5 (AirPlay/печать).
+- 2.4 Assist = IoT: не ходит в LAN/5 GHz/WG, WPS выкл, client isolation, 20 МГц.
+- SIP/FTP/H323 ALG выкл, MAC Winbox только LAN, bandwidth-server/SNMP выкл, Cloud DDNS для WG.
+- Bogon drop на WAN без `10.0.0.0/8` (CGNAT и туннель `10.13.13.0/24`).
+- Hairpin NAT для UPnP с LAN.
+
+| Мост | Подсеть | Порты / SSID |
+|------|---------|----------------|
+| `bridge-lan` | `192.168.10.0/24` | ether2–ether5, Winbox/SSH, **ПК Almanac** |
+| `bridge-wifi24` | `192.168.20.0/24` | SSID Assist |
+| `bridge-wifi5` | `192.168.30.0/24` | SSID TDK |
+| `wg-almanac` | `10.13.13.0/24` | UDP 13231 на WAN, peer телефона `.2` |
+
 1. WAN IP или DDNS роутера, порт WG (по умолчанию 13231).
-2. **Сгенерировать ключи и скрипты**.
-3. Скрипт — в Terminal WinBox / MikroTik.
-4. `almanac-phone.conf` — в приложение WireGuard на телефоне, туннель включить.
-5. На ПК (PowerShell от администратора), если телефон не достучится:
+2. LAN подсети: `192.168.10.0/24,192.168.20.0/24,192.168.30.0/24`.
+3. **Сгенерировать ключи и скрипты**.
+4. Скрипт — в Terminal WinBox / MikroTik. Он идемпотентный: ставит `wg-almanac` в `LAN-interfaces` и handshake **перед** `INPUT drop WAN`. Wi‑Fi, DHCP и CAKE не трогает.
+5. `almanac-phone.conf` — в приложение WireGuard на телефоне, туннель включить. Split-tunnel: только WG + три домашние сети, не весь интернет.
+6. На ПК (PowerShell от администратора), если телефон не достучится:
 
 ```bat
 netsh advfirewall firewall add rule name="Almanac API" dir=in action=allow protocol=TCP localport=8080
 ```
 
-6. В Almanac вставить Server URL с **LAN IP этого ПК**.
+7. В Almanac вставить Server URL с **LAN IP этого ПК** (`192.168.10.x`, не Wi‑Fi).
 
 Если в списке IP всплыл `172.17` / `172.18` / `172.19` — это Docker. Выберите `192.168.*` или `10.*`.
+
+Winbox и SSH по-прежнему только с `192.168.10.0/24`. Телефон в туннеле доходит до API, но не до управления роутером.
 
 ## Файлы
 

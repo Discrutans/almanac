@@ -36,7 +36,7 @@ class LabConfigIn(BaseModel):
     endpoint: str = ""
     wg_port: int = Field(default=13231, ge=1, le=65535)
     wg_network: str = "10.13.13.0/24"
-    lan_cidr: str = "192.168.88.0/24"
+    lan_cidr: str = "192.168.10.0/24,192.168.20.0/24,192.168.30.0/24"
     pc_lan_ip: str = ""
     phone_name: str = "almanac-phone"
     api_key: str = ""
@@ -178,7 +178,7 @@ def _bundle_from_saved(saved: dict[str, Any], body: LabConfigIn | None = None) -
         endpoint=str(data.get("endpoint") or ""),
         wg_port=int(data.get("wg_port") or 13231),
         wg_network=str(data.get("wg_network") or "10.13.13.0/24"),
-        lan_cidr=str(data.get("lan_cidr") or "192.168.88.0/24"),
+        lan_cidr=str(data.get("lan_cidr") or "192.168.10.0/24,192.168.20.0/24,192.168.30.0/24"),
         pc_lan_ip=str(data.get("pc_lan_ip") or ""),
         phone_name=str(data.get("phone_name") or "almanac-phone"),
         mikrotik_private_key=str(data.get("mikrotik_private_key") or ""),
