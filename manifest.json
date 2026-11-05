@@ -1,0 +1,44 @@
+{
+    "name": "Almanac Calendar",
+    "short_name": "Almanac",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#FFFFFF",
+    "theme_color": "#2196F3",
+    "description": "Feature-first calendar with local persistence and optional sync.",
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "Today",
+            "short_name": "Today",
+            "description": "Open calendar on today",
+            "url": "./?view=today",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        }
+    ],
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
